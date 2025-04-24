@@ -107,7 +107,7 @@ def gaussian_noise_regression_compare_optimizers(
 
     t0 = time.time()
     for ep in range(num_episodes):
-        y_fn = convex_fn if convex else non_convex_fn
+        y_fn = convex_function if convex else non_convex_function
         y_train[ep] = y_fn(x_train - torch.randn_like(x_train) * noise_intensity)
 
         net.load_state_dict(initial_state)
