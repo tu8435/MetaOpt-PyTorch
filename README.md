@@ -14,15 +14,15 @@ It solves a toy 1-D regression task under Gaussian noise and compares Meta-Opt (
 **Actionable** – if Meta-Opt diverges or trains slower than a baseline, you’ll know immediately.
 
 **Arugments** -
-**flag**	                                 **default**	        **description**
---convex / --no-convex	                    --convex	            Fit the convex target x²+5; turn off to fit the cubic.
---model {SimpleModel,MyNet}	                SimpleModel	          Choose a tiny poly-regressor or a 2-layer MLP.
---base_optimizer_class {SGD,Adam,RMSprop}	  Adam	                Which torch optimizer Meta-Opt uses for its GPC parameters.
---noise_intensity FLOAT	                    1.0	                  Std-dev of Gaussian noise injected each episode.
---max_norm FLOAT	                          1.0	                  Gradient-clipping threshold. MetaOpt is very susceptible to gradient explosion!
---num_episodes INT	                        10	                  How many mini-tasks to run in the outer loop.
---num_steps INT	                            50	                  Inner-loop SGD steps per episode.
---fake_the_dynamics	                        False	                Debug switch that disables Meta-Opt’s learned dynamics (should only be True for unit tests).
+Flag | Default | Description
+--convex / --no-convex | --convex | Fit the convex target x² + 5; toggle off to fit the non-convex cubic.
+--model {SimpleModel, MyNet} | SimpleModel | Choose between a polynomial regressor and a 2-layer MLP.
+--base_optimizer_class {SGD, Adam, RMSprop} | Adam | Optimizer Meta-Opt uses for GPC parameter updates.
+--noise_intensity FLOAT | 1.0 | Standard deviation of Gaussian noise added per episode.
+--max_norm FLOAT | 1.0 | Gradient clipping threshold. MetaOpt is sensitive to exploding gradients!
+--num_episodes INT | 10 | Number of training episodes (outer loop).
+--num_steps INT | 50 | Number of steps per episode (inner loop).
+--fake_the_dynamics | False | Debug flag
 
 Feel free to add more KWARGS and expand the comprehensiveness of these lightweight tests for your needs 😊!
 
