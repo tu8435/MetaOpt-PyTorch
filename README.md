@@ -27,10 +27,4 @@ Flag | Default | Description
 Feel free to add more KWARGS and expand the comprehensiveness of these lightweight tests for your needs 😊!
 
 **Example Usage -**
-python lightweight_tests.py \
-    --convex true \
-    --noise_intensity 0.7 \
-    --base_optimizer_class SGD
-
-
-
+python lightweight_tests.py --convex true --noise_intensity 0.7 --base_optimizer_class SGD
