@@ -48,7 +48,7 @@ def non_convex_function(input_data: torch.Tensor):
 # ──────────────────────────── Cost fn  ─────────────────────────────
 def example_cost_function(model, trainable_param_info, trainable_flat_params, inputs):
     from torch.func import functional_call            # torch ≥ 2.1
-    from MetaOpt import unflatten_params       
+    from metaoptimizer import unflatten_params       
 
     device = next(model.parameters()).device
     dtype = next(model.parameters()).dtype
@@ -73,7 +73,7 @@ def gaussian_noise_regression_compare_optimizers(
     num_steps: int,
     fake_the_dynamics: bool = False,
 ):
-    from metaopt import MetaOpt  # <- adjust to your package layout
+    from metaoptimizer import MetaOpt  # <- adjust to your package layout
 
     optim_dict = {"SGD": optim.SGD, "Adam": optim.Adam, "RMSprop": optim.RMSprop}
     if base_optimizer_class not in optim_dict:
