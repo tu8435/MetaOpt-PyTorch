@@ -1,0 +1,7 @@
+cache
+data
+tmp_results
+results
+.env
+.env.*
+__pycache__
