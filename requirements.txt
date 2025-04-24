@@ -1,12 +1,17 @@
-torch
-numpy
-transformers
+# Core ML frameworks
+torch>=2.0
+transformers>=4.36
 trl
-evaluate
-datasets
-pet
 accelerate
 bitsandbytes
-matplotlib
-tqdm
+
+# Evaluation & utility
+evaluate
+datasets
 scikit-learn
+tqdm
+matplotlib
+numpy
+
+# Project-specific packages
+peft
