@@ -6,6 +6,7 @@ lightweight_tests is a tiny, self-contained benchmark suite meant to catch regre
 It solves a toy 1-D regression task under Gaussian noise and compares Meta-Opt (with your choice of base optimizer) against vanilla SGD/Adam/RMSprop.
 
 **Why keep it around?**
+
 **Fast – **finishes in seconds on CPU, < 1 s on GPU.
 
 **Deterministic – **tiny problem size and fixed seeds give repeatable numbers.
