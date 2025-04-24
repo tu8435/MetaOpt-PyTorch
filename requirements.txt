@@ -1,0 +1,12 @@
+torch
+numpy
+transformers
+trl
+evaluate
+datasets
+pet
+accelerate
+bitsandbytes
+matplotlib
+tqdm
+scikit-learn
