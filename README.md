@@ -7,13 +7,13 @@ It solves a toy 1-D regression task under Gaussian noise and compares Meta-Opt (
 
 **Why keep it around?**
 
-**Fast – **finishes in seconds on CPU, < 1 s on GPU.
+**Fast** –finishes in seconds on CPU, < 1 s on GPU.
 
-**Deterministic – **tiny problem size and fixed seeds give repeatable numbers.
+**Deterministic** – tiny problem size and fixed seeds give repeatable numbers.
 
-**Actionable –** if Meta-Opt diverges or trains slower than a baseline, you’ll know immediately.
+**Actionable** – if Meta-Opt diverges or trains slower than a baseline, you’ll know immediately.
 
-**Arugments -**
+**Arugments** -
 **flag**	                                 **default**	        **description**
 --convex / --no-convex	                    --convex	            Fit the convex target x²+5; turn off to fit the cubic.
 --model {SimpleModel,MyNet}	                SimpleModel	          Choose a tiny poly-regressor or a 2-layer MLP.
