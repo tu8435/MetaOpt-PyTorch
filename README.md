@@ -23,6 +23,8 @@ Flag | Default | Description
 --num_episodes INT | 10 | Number of training episodes (outer loop).
 --num_steps INT | 50 | Number of steps per episode (inner loop).
 --fake_the_dynamics | False | Debug flag
+--save_data_dir     | "results" | Directory to save the plot to
+--device            | "cpu"     | Lightweight test should work just fine on CPU
 
 Feel free to add more KWARGS and expand the comprehensiveness of these lightweight tests for your needs 😊!
 

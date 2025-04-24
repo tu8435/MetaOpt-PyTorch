@@ -3,6 +3,7 @@
 import argparse
 import copy
 import time
+import os
 
 import torch
 import torch.nn as nn
@@ -72,6 +73,8 @@ def gaussian_noise_regression_compare_optimizers(
     num_episodes: int,
     num_steps: int,
     fake_the_dynamics: bool = False,
+    save_data_dir: str = "results",
+    device: str = "cpu",
 ):
     from metaoptimizer import MetaOpt  # <- adjust to your package layout
 
@@ -79,7 +82,7 @@ def gaussian_noise_regression_compare_optimizers(
     if base_optimizer_class not in optim_dict:
         raise ValueError(f"Unknown optimizer {base_optimizer_class}")
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
     print(f"Using device: {device}")
     net.to(device)
 
@@ -119,7 +122,7 @@ def gaussian_noise_regression_compare_optimizers(
             nn.utils.clip_grad_norm_(net.parameters(), max_norm)
 
             inputs = {"input_ids": x_train, "labels": y_train[ep]}
-            closure = lambda: (inputs, example_cost_function)
+            closure = (inputs, example_cost_function)
             meta_opt.step(closure=closure)      # ← call with *function*, not result
         meta_losses.append(loss.item())
         print(f"[Meta-Opt] ep {ep+1}/{num_episodes}  loss={loss.item():.4f}")
@@ -129,7 +132,7 @@ def gaussian_noise_regression_compare_optimizers(
 
     for name, cls in optim_dict.items():
         t0 = time.time()
-        opt = cls(net.parameters(), lr=1e-2)
+        opt = cls(net.parameters(), lr=1e-3)
         hist = []
         for ep in range(num_episodes):
             net.load_state_dict(initial_state)
@@ -154,7 +157,18 @@ def gaussian_noise_regression_compare_optimizers(
     plt.ylabel("MSE loss")
     plt.title(f"{'Convex' if convex else 'Non-convex'} target")
     plt.legend()
-    plt.show()
+
+    # Define the directory and filename
+    plot_dir = "lightweight_plots"
+    plot_filename = f"metaopt_plot_{'convex' if convex else 'nonconvex'}.png"
+    plot_path = os.path.join(plot_dir, plot_filename)
+
+    # Create the directory if it doesn't exist
+    os.makedirs(plot_dir, exist_ok=True)
+
+    # Save the plot
+    plt.savefig(plot_path)
+    print(f"Plot saved to {plot_path}")
 
     print("\nFinal episode losses")
     print(f"Meta-Opt   {meta_losses[-1]:.6f}   time={times['meta_opt']:.1f}s")
@@ -174,9 +188,11 @@ def main():
     p.add_argument("--base_optimizer_class", choices=["SGD", "Adam", "RMSprop"], default="Adam")
     p.add_argument("--noise_intensity", type=float, default=1.0)
     p.add_argument("--max_norm", type=float, default=1.0)
-    p.add_argument("--num_episodes", type=int, default=10)
-    p.add_argument("--num_steps", type=int, default=50)
+    p.add_argument("--num_episodes", type=int, default=5)
+    p.add_argument("--num_steps", type=int, default=25)
     p.add_argument("--fake_the_dynamics", type=str2bool, default=False)
+    p.add_argument("--save_data_dir", type=str, default="results", help="save data to file?")
+    p.add_argument("--device", type=str, default="cpu", help="device to use (cpu or cuda)")
     args = p.parse_args()
 
     net_cls = SimpleModel if args.model == "SimpleModel" else MyNet
@@ -189,6 +205,8 @@ def main():
         num_episodes=args.num_episodes,
         num_steps=args.num_steps,
         fake_the_dynamics=args.fake_the_dynamics,
+        save_data_dir=args.save_data_dir,
+        device=args.device,
     )
 
 

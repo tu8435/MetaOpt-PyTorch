@@ -5,3 +5,4 @@ results
 .env
 .env.*
 __pycache__
+lightweight_plots
