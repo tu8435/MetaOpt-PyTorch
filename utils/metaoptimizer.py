@@ -107,7 +107,7 @@ class MetaOpt(Optimizer):
         self.meta_optimizer = None
         self.base_optimizer_cls = base_optimizer_cls
         self.base_optimizer_kwargs = base_optimizer_kwargs
-        self.max_norm = max_norm
+        self.max_norm = max_norm # TODO: add support for gradient clipping of the meta optimizer update
 
         # 2) Flatten the model's parameters for shape info
         # It is ESSENTIAL that we only use trainable_parameters to build the meta-optimizers parameter and disturbance history to save on memory.

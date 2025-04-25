@@ -17,6 +17,7 @@ Possibly Redundant Imports
 """
 # SIMPLE
 import torch
+from utils.metaoptimizer import unflatten_params
 # Need baseline implementation for comparison... want to ensure deterministic result and prevent _scaled_dot_product_efficient_attention_backward is not implemented error
 from torch.nn.functional import scaled_dot_product_attention
 from torch.nn.attention import SDPBackend, sdpa_kernel
@@ -30,8 +31,6 @@ from torch.func import functional_call
 import time
 
 import torch.nn as nn
-from torch.optim import Optimizer
-from torch.func import functional_call
 from collections import deque
 
 

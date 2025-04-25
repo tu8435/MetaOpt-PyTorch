@@ -12,6 +12,10 @@ scikit-learn
 tqdm
 matplotlib
 numpy
+tensorboardX
 
 # Project-specific packages
 peft
+
+
+# Datasets
