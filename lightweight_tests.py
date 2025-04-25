@@ -49,7 +49,7 @@ def non_convex_function(input_data: torch.Tensor):
 # ──────────────────────────── Cost fn  ─────────────────────────────
 def example_cost_function(model, trainable_param_info, trainable_flat_params, inputs):
     from torch.func import functional_call            # torch ≥ 2.1
-    from metaoptimizer import unflatten_params       
+    from utils.metaoptimizer import unflatten_params       
 
     device = next(model.parameters()).device
     dtype = next(model.parameters()).dtype
@@ -68,6 +68,7 @@ def gaussian_noise_regression_compare_optimizers(
     convex: bool,
     net: nn.Module,
     base_optimizer_class: str,
+    gpc_optimizer_class: str,
     noise_intensity: float,
     max_norm: float,
     num_episodes: int,
@@ -76,12 +77,31 @@ def gaussian_noise_regression_compare_optimizers(
     save_data_dir: str = "results",
     device: str = "cpu",
 ):
-    from metaoptimizer import MetaOpt  # <- adjust to your package layout
+    from utils.metaoptimizer import MetaOpt  # <- adjust to your package layout
 
     optim_dict = {"SGD": optim.SGD, "Adam": optim.Adam, "RMSprop": optim.RMSprop}
     if base_optimizer_class not in optim_dict:
         raise ValueError(f"Unknown optimizer {base_optimizer_class}")
-
+    
+    # get corresponding base kwargs (with lr as an option)
+    if base_optimizer_class == "SGD":
+        base_optim_kwargs = {"lr": 1e-3, "momentum": 0}
+    elif base_optimizer_class == "Adam":
+        base_optim_kwargs = {"lr": 1e-5, "betas": (0.9, 0.999)}
+    elif base_optimizer_class == "RMSprop":
+        base_optim_kwargs = {"lr": 1e-3, "alpha": 0.99, "eps": 1e-8}
+    else:
+        raise ValueError(f"Unknown optimizer {base_optimizer_class}")
+    
+    # get corresponding meta optimizer kwargs
+    if gpc_optimizer_class == "SGD":
+        gpc_optim_kwargs = {"lr": 1e-3, "momentum": 0}
+    elif gpc_optimizer_class == "Adam":
+        gpc_optim_kwargs = {"lr": 1e-3, "betas": (0.9, 0.999)}
+    elif gpc_optimizer_class == "RMSprop":
+        gpc_optim_kwargs = {"lr": 1e-3, "alpha": 0.99, "eps": 1e-8}
+    else:
+        raise ValueError(f"Unknown optimizer {gpc_optimizer_class}")
 
     print(f"Using device: {device}")
     net.to(device)
@@ -102,7 +122,9 @@ def gaussian_noise_regression_compare_optimizers(
         lr_gpc=1e-5,
         device=device,
         base_optimizer_cls=optim_dict[base_optimizer_class],
-        base_optimizer_kwargs={"lr": 1e-3},
+        base_optimizer_kwargs=base_optim_kwargs,
+        gpc_optimizer_cls=optim_dict[gpc_optimizer_class],
+        gpc_optimizer_kwargs=gpc_optim_kwargs,
         max_norm=max_norm,
     )
 
@@ -185,7 +207,8 @@ def main():
     p = argparse.ArgumentParser(description="Meta-Opt Gaussian regression bench")
     p.add_argument("--convex", type=str2bool, default=True, help="fit convex target?")
     p.add_argument("--model", choices=["SimpleModel", "MyNet"], default="SimpleModel")
-    p.add_argument("--base_optimizer_class", choices=["SGD", "Adam", "RMSprop"], default="Adam")
+    p.add_argument("--base_optimizer_class", choices=["SGD", "Adam", "RMSprop"], default="SGD")
+    p.add_argument("--gpc_optimizer_class", choices=["SGD", "Adam", "RMSprop"], default="SGD")
     p.add_argument("--noise_intensity", type=float, default=1.0)
     p.add_argument("--max_norm", type=float, default=1.0)
     p.add_argument("--num_episodes", type=int, default=5)
@@ -200,6 +223,7 @@ def main():
         convex=args.convex,
         net=net_cls(),
         base_optimizer_class=args.base_optimizer_class,
+        gpc_optimizer_class=args.gpc_optimizer_class,
         noise_intensity=args.noise_intensity,
         max_norm=args.max_norm,
         num_episodes=args.num_episodes,
@@ -207,7 +231,7 @@ def main():
         fake_the_dynamics=args.fake_the_dynamics,
         save_data_dir=args.save_data_dir,
         device=args.device,
-    )
+    )  
 
 
 if __name__ == "__main__":

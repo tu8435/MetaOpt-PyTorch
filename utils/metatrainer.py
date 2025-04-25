@@ -18,6 +18,7 @@ Possibly Redundant Imports
 # SIMPLE
 import torch
 from utils.metaoptimizer import unflatten_params
+from utils.metaoptimizer import MetaOpt
 # Need baseline implementation for comparison... want to ensure deterministic result and prevent _scaled_dot_product_efficient_attention_backward is not implemented error
 from torch.nn.functional import scaled_dot_product_attention
 from torch.nn.attention import SDPBackend, sdpa_kernel
@@ -353,14 +354,14 @@ class MetaTrainer(Trainer):
             "freeze_gpc_params":False,
             "fake_the_dynamics":False,
             "lr_gpc":1e-5,                # 1e-5 is a strict upperbound on lr_gpc, when using SGD as a base optimizer
-            "base_optimizer_cls":torch.optim.SGD,
+            "base_optimizer_cls": torch.optim.SGD,
             "base_optimizer_kwargs":{"lr": 1e-3},
+            "gpc_optimizer_cls": torch.optim.SGD,
+            "gpc_optimizer_kwargs":{"lr": 1e-3},
             "max_norm":1.0,
         }
 
   """
-  TODO: add options to have a custom optimizer other than ADAM for the inner_optimizer
-        => Related: MetaOpt Config for other hyperparameters
   TODO: In real usage, I need more robust error handling, logging, etc.
 
   Key Points:
@@ -392,6 +393,8 @@ class MetaTrainer(Trainer):
             device=self.args.device,
             base_optimizer_cls=self.meta_optimizer_params.get("base_optimizer_cls", torch.optim.SGD),
             base_optimizer_kwargs=self.meta_optimizer_params.get("base_optimizer_kwargs", {"lr": 1e-3}),
+            gpc_optimizer_cls=self.meta_optimizer_params.get("gpc_optimizer_cls", torch.optim.SGD),
+            gpc_optimizer_kwargs=self.meta_optimizer_params.get("gpc_optimizer_kwargs", {"lr": 1e-3}),
             max_norm=self.meta_optimizer_params.get("max_norm", 1.0),
         )
     logger.info("\n >>> Created meta-optimizer with the following Param <<<")
@@ -400,6 +403,7 @@ class MetaTrainer(Trainer):
     logger.info(f"\nfreeze_gpc_params={self.optimizer.freeze_gpc_params}, fake_the_dynamics={self.optimizer.fake_the_dynamics}")
     logger.info(f"\nlr_gpc={self.optimizer.lr_gpc}, device={self.optimizer.device}")
     logger.info(f"\nbase_optimizer_cls={self.optimizer.base_optimizer_cls}, base_optimizer_kwargs={self.optimizer.base_optimizer_kwargs}")
+    logger.info(f"\ngpc_optimizer_cls={self.optimizer.gpc_optimizer_cls}, gpc_optimizer_kwargs={self.optimizer.gpc_optimizer_kwargs}")
     logger.info(f"\nmax_norm={self.optimizer.max_norm}")
     logger.info("\n >>> ----------------------------------------------- <<<")
     return self.optimizer

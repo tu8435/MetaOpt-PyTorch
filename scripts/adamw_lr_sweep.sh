@@ -15,7 +15,7 @@ SUBSET=128
 EPOCHS=2
 H=15
 HH=10
-LR_GPC=5e-6          # keep low per spec
+LR_GPC=1e-3          # keep ≤ 5e-6 for SGD and ≤ 1e-3 for AdamW
 MAX_NORM=1.0
 
 BASE_LR_LIST=(1e-5 3e-5 5e-5)
@@ -43,7 +43,9 @@ for BASE_LR in "${BASE_LR_LIST[@]}"; do
     --fake_the_dynamics false \
     --base_optimizer_cls AdamW \
     --base_optimizer_kwargs "{\"lr\":${BASE_LR},\"betas\":[0.9,0.99]}" \
+    --gpc_optimizer_cls AdamW \
+    --gpc_optimizer_kwargs "{\"lr\":${LR_GPC},\"betas\":[0.9,0.99]}" \
     --max_norm "$MAX_NORM" \
     --cache_dir "$HF_HOME" \
-    --out_dir "./results/{task}_H{H}_LR{base_lr}_LG{lr_gpc}"
+    --out_dir "./results/${TASK}_H${H}_LR${BASE_LR}_LG${LR_GPC}"
 done

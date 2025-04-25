@@ -76,6 +76,8 @@ class MetaOpt(Optimizer):
       device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.mps.is_available() else "cpu"), # also configure for mps
       base_optimizer_cls: Optimizer = torch.optim.Adam,
       base_optimizer_kwargs: dict = {"lr": 1e-3, "betas": (0.9, 0.99)},
+      gpc_optimizer_cls: Optimizer = torch.optim.SGD,
+      gpc_optimizer_kwargs: dict = {"lr": 1e-3},
       max_norm: float = 1.0, # for gradient clipping the GPC params as they tend to be unstable
   ):
         """
@@ -89,6 +91,8 @@ class MetaOpt(Optimizer):
         :param fake_the_dynamics: whether to use the gradient buffer to time-evolve the system rather than taking bona fide train_steps during counterfactual rollout
         :param base_optimizer_cls: e.g. torch.optim.Adam
         :param base_optimizer_kwargs: e.g. dict(lr=1e-3, betas=(0.9,0.99))
+        :param gpc_optimizer_cls: e.g. torch.optim.Adam
+        :param gpc_optimizer_kwargs: e.g. dict(lr=1e-3, betas=(0.9,0.99))
         """
     
         # 1) Store basic params
@@ -107,6 +111,8 @@ class MetaOpt(Optimizer):
         self.meta_optimizer = None
         self.base_optimizer_cls = base_optimizer_cls
         self.base_optimizer_kwargs = base_optimizer_kwargs
+        self.gpc_optimizer_cls = gpc_optimizer_cls
+        self.gpc_optimizer_kwargs = gpc_optimizer_kwargs
         self.max_norm = max_norm # TODO: add support for gradient clipping of the meta optimizer update
 
         # 2) Flatten the model's parameters for shape info
@@ -135,19 +141,20 @@ class MetaOpt(Optimizer):
         # create a container for gpc_params
         self.gpc_params_container = [self.gpc_params]
 
-        # 4) Construct param_groups for the base optimizer and the meta-optimizer
+        # 4) Construct param_groups for the base optimizer and the meta-optimizer (let meta-opt look like a single optimizer to the caller)
         base_param_list = [p for p in model.parameters() if p.requires_grad]
         defaults = {}
         super().__init__([
             {"params": base_param_list, "lr": base_optimizer_kwargs["lr"], "meta": False},      # normal base param group, EXPLICITLY add lr
-            {"params": self.gpc_params_container, "lr": lr_gpc, "meta": True},  # GPC param, pass the container, not the parameter directly
+            {"params": self.gpc_params_container, "lr": gpc_optimizer_kwargs["lr"], "meta": True},  # GPC param, pass the container, not the parameter directly
         ], defaults)
 
 
         #5 ) Build the *internal* optimizer for updating gpc_params and base optimizer for base params
-        # TODO: option to make gpc optimizer configurable
-        self.gpc_optim = torch.optim.SGD(self.gpc_params_container, lr=lr_gpc)
+        self.gpc_optim  = gpc_optimizer_cls(self.gpc_params_container, **gpc_optimizer_kwargs)
+        print(f"Using GPC optimizer: {gpc_optimizer_cls.__name__} with kwargs: {gpc_optimizer_kwargs}")
         self.base_optim = base_optimizer_cls([p for p in model.parameters() if p.requires_grad], **base_optimizer_kwargs)
+        print(f"Using base optimizer: {base_optimizer_cls.__name__} with kwargs: {base_optimizer_kwargs}")
 
 
         # 6) Instantiate disturbances, param history, and data buffers
@@ -251,7 +258,8 @@ class MetaOpt(Optimizer):
         lr_base = self.base_lr(self.t)
       else:
         lr_base = self.base_lr
-
+      
+      # TODO: Make this parameter update equivalent to the base optimizer
       next_params = current_params - lr_base * disturbance - self.weight_decay * current_params
 
       # GPC control from last H disturbances

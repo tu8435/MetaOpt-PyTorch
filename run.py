@@ -77,6 +77,13 @@ def parse_args():
                    type=json_or_none,
                    default='{"lr":1e-3,"betas":[0.9,0.99]}',
                    help='JSON string, e.g. \'{"lr":1e-3,"betas":[0.9,0.99]}\'')
+    p.add_argument("--gpc_optimizer_cls",
+                   choices=["Adam","SGD","AdamW","RMSprop","Adan","Adafactor"],
+                   default="AdamW")
+    p.add_argument("--gpc_optimizer_kwargs",
+                   type=json_or_none,
+                   default='{"lr":1e-3,"betas":[0.9,0.99]}',
+                   help='JSON string, e.g. \'{"lr":1e-3,"betas":[0.9,0.99]}\'')
 
     p.add_argument("--max_norm",                 type=float, default=1.0)
 
@@ -103,15 +110,15 @@ def main():
     from torch import optim
     from utils.adan import Adan
     from transformers import Adafactor
-    BASE_OPT_LOOKUP = {
+    OPT_LOOKUP = {
         "Adam":      optim.Adam,
         "AdamW":     optim.AdamW,
         "SGD":       optim.SGD,
         "RMSprop":   optim.RMSprop,
         "Adan":      Adan,
-        "Adafactor": Adafactor,
     }
-    base_opt_cls = BASE_OPT_LOOKUP[args.base_optimizer_cls]
+    base_opt_cls = OPT_LOOKUP[args.base_optimizer_cls]
+    gpc_opt_cls  = OPT_LOOKUP[args.gpc_optimizer_cls]
 
     # Format output directory
     run_name = f"MetaOpt{args.base_optimizer_cls}_{args.H}_HH{args.HH}_LR{args.base_lr}_LG{args.lr_gpc}_GPCSteps{args.steps}_"
@@ -145,6 +152,8 @@ def main():
             device              = args.device,
             base_optimizer_cls  = base_opt_cls,
             base_optimizer_kwargs = args.base_optimizer_kwargs,
+            gpc_optimizer_cls   = gpc_opt_cls,
+            gpc_optimizer_kwargs = args.gpc_optimizer_kwargs,
             max_norm            = args.max_norm,
         )
     )

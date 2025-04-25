@@ -242,6 +242,8 @@ def meta_train_gpc(
         device              = device,
         base_optimizer_cls  = metaopt_overrides.get("base_optimizer_cls", AdamW),
         base_optimizer_kwargs= metaopt_overrides.get("base_optimizer_kwargs", {"lr": 1e-3, "betas": [0.9, 0.99]}), # <— also use base_lr here
+        gpc_optimizer_cls   = metaopt_overrides.get("gpc_optimizer_cls", AdamW),
+        gpc_optimizer_kwargs= metaopt_overrides.get("gpc_optimizer_kwargs", {"lr": 1e-3, "betas": [0.9, 0.99]}), # <— also use base_lr here
         max_norm            = metaopt_overrides.get("max_norm", 1.0), # <— use passed max_norm
     )
 
@@ -311,6 +313,8 @@ def run_meta_finetuning(
         device             = device,
         base_optimizer_cls = metaopt_overrides.get("base_optimizer_cls", AdamW),
         base_optimizer_kwargs= metaopt_overrides.get("base_optimizer_kwargs", {"lr": 1e-3, "betas": [0.9, 0.99]}), # <— also use base_lr here
+        gpc_optimizer_cls  = metaopt_overrides.get("gpc_optimizer_cls", AdamW), # ignored when frozen
+        gpc_optimizer_kwargs= metaopt_overrides.get("gpc_optimizer_kwargs", {"lr": 1e-3, "betas": [0.9, 0.99]}), # <— irrelevant, optimizer is frozen
         max_norm           = metaopt_overrides.get("max_norm", 1.0), # <— use passed max_norm
     )
     # copy GPC weights
