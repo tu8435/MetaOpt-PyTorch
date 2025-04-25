@@ -226,6 +226,7 @@ def meta_train_gpc(
         logging_steps      = 100,
         fp16=False, bf16=False, gradient_checkpointing=False,
         report_to=["tensorboard"],
+        lr_scheduler_type='constant',
     )
 
     meta_opt = MetaOpt(
@@ -326,12 +327,13 @@ def run_meta_finetuning(
         learning_rate      = base_lr,
         num_train_epochs   = num_epochs,
         eval_strategy      = "steps",
-        eval_steps         = 400,
-        logging_steps      = 100,
+        eval_steps         = 200,
+        logging_steps      = 200,
         max_grad_norm      = metaopt_overrides.get("max_norm", 1.0), # <— use passed max_norm
         fp16=False, bf16=False, gradient_checkpointing=False,
         save_steps         = 1000,
         report_to=["tensorboard"],
+        lr_scheduler_type='constant',
     )
 
     trainer = MetaTrainer(

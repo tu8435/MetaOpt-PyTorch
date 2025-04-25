@@ -114,7 +114,7 @@ def main():
     base_opt_cls = BASE_OPT_LOOKUP[args.base_optimizer_cls]
 
     # Format output directory
-    run_name = f"MetaOpt_H{args.H}_HH{args.HH}_LR{args.base_lr}_LG{args.lr_gpc}_GPCSteps{args.steps}_"
+    run_name = f"MetaOpt{args.base_optimizer_cls}_{args.H}_HH{args.HH}_LR{args.base_lr}_LG{args.lr_gpc}_GPCSteps{args.steps}_"
     args.out_dir = os.path.join("results", f"{args.task}", run_name)
 
     # ----------------------------------------------------------------

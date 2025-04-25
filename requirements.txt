@@ -1,6 +1,9 @@
 # Core ML frameworks
-torch>=2.0
-transformers>=4.36
+torch==2.6.0
+torchvision>0.19.1+cu124
+torchaudio
+transformers
+tokenizers
 trl
 accelerate
 bitsandbytes
@@ -16,6 +19,5 @@ tensorboardX
 
 # Project-specific packages
 peft
-
 
 # Datasets

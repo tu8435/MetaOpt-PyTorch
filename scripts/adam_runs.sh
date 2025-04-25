@@ -1,0 +1,23 @@
+#!/bin/bash
+export PYTHONPATH="/scratch/gpfs/tu8435/COS484/MetaOpt-PyTorch"
+
+python run.py \
+  --hf_token $HF_TOKEN \
+  --model_id facebook/opt-125m \
+  --task sst2 \
+  --H 5 \
+  --HH 3 \
+  --m_method scalar \
+  --base_lr 1e-3 \
+  --weight_decay 0.0 \
+  --freeze_gpc_params false \
+  --fake_the_dynamics false \
+  --lr_gpc 5e-6 \
+  --base_optimizer_cls AdamW \
+  --base_optimizer_kwargs '{"lr":1e-3,"betas":[0.9,0.99]}' \
+  --max_norm 1.0 \
+  --steps 250 \
+  --subset 128 \
+  --num_epochs 0.2 \
+  --cache_dir /scratch/gpfs/tu8435/model_cache/ \
+  --out_dir "./results/{task}_H{H}_LR{base_lr}_LG{lr_gpc}"
