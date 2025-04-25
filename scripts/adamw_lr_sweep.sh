@@ -10,15 +10,15 @@ set -euo pipefail
 MODEL_ID="facebook/opt-125m"
 TASK="sst2"
 DEVICE="cuda"
-STEPS=2000
+STEPS=200
 SUBSET=128
-EPOCHS=2
+EPOCHS=0.25
 H=15
 HH=10
-LR_GPC=1e-3          # keep ≤ 5e-6 for SGD and ≤ 1e-3 for AdamW
+LR_GPC=1e-4          # keep ≤ 5e-6 for SGD and ≤ 1e-3 for AdamW
 MAX_NORM=1.0
 
-BASE_LR_LIST=(1e-5 3e-5 5e-5)
+BASE_LR_LIST=(1e-4 5e-4 1e-3)
 
 for BASE_LR in "${BASE_LR_LIST[@]}"; do
   echo "─────────────────────────────────────────────────────────────"

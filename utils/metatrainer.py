@@ -433,6 +433,12 @@ class MetaTrainer(Trainer):
           with self.compute_loss_context_manager():
               loss = self.compute_loss(model, inputs, num_items_in_batch=num_items_in_batch)
 
+          # --- make logged train-loss comparable to eval-loss -----------------
+          if loss.ndim > 0:                                # average over batch/tokens
+            loss = loss.mean()
+          loss = loss / self.args.gradient_accumulation_steps
+          # -------------------------------------------------------------------
+
           if self.args.n_gpu > 1:
               loss = loss.mean()
 
