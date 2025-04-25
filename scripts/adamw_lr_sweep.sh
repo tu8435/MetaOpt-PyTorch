@@ -3,7 +3,7 @@
 # H = 15 , HH = 10
 # Sweeps base_lr ∈ {1e-5 , 3e-5 , 5e-5}   (lr_gpc fixed)
 
-set -euo pipefail
+set -e
 
 export HF_TOKEN=${HF_TOKEN:?HF_TOKEN must be set by the SLURM wrapper}
 
