@@ -7,3 +7,4 @@ results
 __pycache__
 lightweight_plots
 slurm
+hf_cache
