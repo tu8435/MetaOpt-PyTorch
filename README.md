@@ -30,3 +30,10 @@ Feel free to add more KWARGS and expand the comprehensiveness of these lightweig
 
 **Example Usage -**
 python lightweight_tests.py --convex true --noise_intensity 0.7 --base_optimizer_class SGD
+
+# run.py Usage Notes
+- Ensure both the models and data are downloaded and saved to the model cache if you compute nodes don't have internet access.
+
+# scripts/...sh usage
+- example: HF_TOKEN=your_real_token_here ./scripts/adam_runs.sh
+
