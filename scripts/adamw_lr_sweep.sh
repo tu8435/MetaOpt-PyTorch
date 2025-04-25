@@ -3,9 +3,9 @@
 # H = 15 , HH = 10
 # Sweeps base_lr ∈ {1e-5 , 3e-5 , 5e-5}   (lr_gpc fixed)
 
-set -e
+set -euo pipefail
 
-# export HF_TOKEN=${HF_TOKEN:?HF_TOKEN must be set by the SLURM wrapper}
+export HF_TOKEN=${HF_TOKEN:?HF_TOKEN must be set by the SLURM wrapper}
 
 MODEL_ID="facebook/opt-125m"
 TASK="sst2"
