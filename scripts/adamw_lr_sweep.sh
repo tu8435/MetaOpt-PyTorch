@@ -5,7 +5,7 @@
 
 set -e
 
-export HF_TOKEN=${HF_TOKEN:?HF_TOKEN must be set by the SLURM wrapper}
+# export HF_TOKEN=${HF_TOKEN:?HF_TOKEN must be set by the SLURM wrapper}
 
 MODEL_ID="facebook/opt-125m"
 TASK="sst2"
