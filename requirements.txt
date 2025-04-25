@@ -1,6 +1,6 @@
 # Core ML frameworks
 torch==2.6.0
-torchvision>0.19.1+cu124
+torchvision==0.21.0+cu124
 torchaudio
 transformers
 tokenizers
