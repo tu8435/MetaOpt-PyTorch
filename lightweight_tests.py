@@ -95,7 +95,7 @@ def gaussian_noise_regression_compare_optimizers(
     
     # get corresponding meta optimizer kwargs
     if gpc_optimizer_class == "SGD":
-        gpc_optim_kwargs = {"lr": 1e-3, "momentum": 0}
+        gpc_optim_kwargs = {"lr": 1e-5, "momentum": 0}
     elif gpc_optimizer_class == "Adam":
         gpc_optim_kwargs = {"lr": 1e-3, "betas": (0.9, 0.999)}
     elif gpc_optimizer_class == "RMSprop":

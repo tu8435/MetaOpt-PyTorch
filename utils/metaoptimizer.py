@@ -1,3 +1,4 @@
+from typing import Dict
 import torch
 # Need baseline implementation for comparison... want to ensure deterministic result and prevent 
 # _scaled_dot_product_efficient_attention_backward is not implemented error
@@ -8,47 +9,18 @@ import torch.optim as optim
 import torch.nn.functional as F
 import copy
 
+from utils.utils import get_param_info
+from utils.utils import unflatten_params
+from utils.utils import make_step_fn
+
+
 from matplotlib import pyplot as plt
 from torch.func import functional_call
 import time
 
 import torch.nn as nn
 from torch.optim import Optimizer
-from torch.func import functional_call
 from collections import deque
-
-#######################################
-# Flattening / unflattening helpers
-#######################################
-def get_param_info(model):
-    """
-    Returns a list of (param_name, shape, numel) for each parameter in 'model'.
-    """
-    param_info = []
-    for name, param in model.named_parameters():
-        param_info.append((name, param.shape, param.numel()))
-    return param_info
-
-def unflatten_params(vec: torch.Tensor, param_info):
-    """
-    Build a dictionary { "layer.weight": Tensor, ... } matching 'model'
-    from a flat vector 'vec' using 'param_info'.
-    """
-    pointer = 0
-    new_params = {}
-    for (name, shape, numel) in param_info:
-        chunk = vec[pointer : pointer + numel].view(shape).contiguous()
-        new_params[name] = chunk
-        pointer += numel
-    return new_params
-
-#######################################
-# The functional cost function
-#######################################
-  # Suppose the model is an autoregressive LM
-  # 1) functional_call -> get logits
-  # 2) compute cross-entropy w.r.t. label tokens
-  # 3) return that loss (without updating model params)
 
 #######################################
 # The MetaOpt class
@@ -114,6 +86,11 @@ class MetaOpt(Optimizer):
         self.gpc_optimizer_cls = gpc_optimizer_cls
         self.gpc_optimizer_kwargs = gpc_optimizer_kwargs
         self.max_norm = max_norm # TODO: add support for gradient clipping of the meta optimizer update
+
+        # choose & store the per-step function for the rollout
+        # this is the functional version of the base optimizer
+        self._functional_base_step = make_step_fn(base_optimizer_cls, base_optimizer_kwargs)
+        self._functional_base_state: Dict = {}          # state container used by the step fn
 
         # 2) Flatten the model's parameters for shape info
         # It is ESSENTIAL that we only use trainable_parameters to build the meta-optimizers parameter and disturbance history to save on memory.
@@ -204,7 +181,7 @@ class MetaOpt(Optimizer):
     Then, compute the final loss, which depends on gpc_params.
     """
 
-    # Insufficient History
+    # Insufficient History!!
     if self.t < (self.H + self.HH):
         return None, None
 
@@ -223,6 +200,7 @@ class MetaOpt(Optimizer):
 
 
     # (2) Simulate HH step rollout
+    rollout_state = {} # keep local copies of the optimizer state that only live for the length of the rollout
     for step_i in range(self.HH):
       if self.fake_the_dynamics:
         # Use ring pointer for disturbance
@@ -250,48 +228,54 @@ class MetaOpt(Optimizer):
 
         # Now compute the gradient (this call now runs on a non-checkpointed forward graph)
         # partial derivatives of the loss wrt current_param model params
-        grad_ = torch.autograd.grad(loss_, current_params, create_graph=True, allow_unused=True, materialize_grads=True)[0]
+        grad_ = torch.autograd.grad(loss_, current_params, create_graph=True, allow_unused=False, materialize_grads=False)[0]
         disturbance = grad_
 
-      # base update
-      if callable(self.base_lr):
-        lr_base = self.base_lr(self.t)
-      else:
-        lr_base = self.base_lr
-      
-      # TODO: Make this parameter update equivalent to the base optimizer
-      next_params = current_params - lr_base * disturbance - self.weight_decay * current_params
+      # At this point loss_ has a path to controller self.gpc_params
+      # We can detach the output of the step before making it the input of the next step
+      # This prevents in-place mutations from F.opt() from corrupting earlier graph
+      # Higher order gradients should still flow @ final_loss.backward() in the caller
+      with torch.no_grad():
+        # ------------------------- Simulate the base optimizer update -------------------------
+        lr_base = self.base_lr(self.t + step_i) if callable(self.base_lr) else self.base_lr
+        # Weight decay (as self.weight_decay -> 0, the params evolve naturally w/o shrinkag)
+        decay_params = current_params * (1.0 - self.weight_decay)
+        next_params, rollout_state = self._functional_base_step(decay_params, disturbance, rollout_state, lr_base)
+        # --------------------------------------------------------------------------------------
 
-      # GPC control from last H disturbances
-      # We'll gather the relevant H disturbances from the ring
-      # For the i-th step, we want ring indexes [ring_ptr - H + step_i : ring_ptr + step_i)
-      # We'll do a loop or slice
-      control_indices = []
-      # The ring pointer for "most recent" is self.dist_ptr - 1
-      # but let's define a local pointer for "the step_i"
-      # We'll skip complexities & do a small loop
-      ptr = (self.dist_ptr - 1 + step_i) % (self.H + self.HH)
-      for _ in range(self.H):
-          control_indices.append(ptr % (self.H + self.HH))
-          ptr -= 1
-      control_indices.reverse()
-      
-      # gather
-      past_grads = self.disturbance_history[control_indices]
+        # ------------------------- Simulate the GPC optimizer update -------------------------
+        # GPC control from last H disturbances
+        # We'll gather the relevant H disturbances from the ring
+        # For the i-th step, we want ring indexes [ring_ptr - H + step_i : ring_ptr + step_i)
+        # We'll do a loop or slice
+        control_indices = []
+        # The ring pointer for "most recent" is self.dist_ptr - 1
+        # but let's define a local pointer for "the step_i"
+        # We'll skip complexities & do a small loop
+        ptr = (self.dist_ptr - 1 + step_i) % (self.H + self.HH)
+        for _ in range(self.H):
+            control_indices.append(ptr % (self.H + self.HH))
+            ptr -= 1
+        control_indices.reverse()
+        
+        # gather
+        past_grads = self.disturbance_history[control_indices]
 
       # compute GPC control and define next_params
+      # VERY IMPORTANT: LET AUTOGRAD TRACK THE CONTROLLER CONTRIBUTIONS
       gpc_control = self.compute_gpc_control(past_grads)
       next_params += gpc_control
-      current_params = next_params
+      # VERY IMPORTANT: DONT BREAK THE GRAPH HERE SO GRADS CAN FLOW
+      current_params = next_params.clone().requires_grad_(True)
+      # --------------------------------------------------------------------------------------
 
-    # (3) final loss
-    # final step's data is the last item in the HH
+    # ------------------- Final loss on the last mini-batch of the rollout -------------------
     final_inputs, final_user_cost = self.data_buffer[start + self.HH - 1]
-
     final_loss = self.cost_fn_with_params(trainable_flat_params=current_params, inputs=final_inputs, batch_cost_fn=final_user_cost)
+    # ----------------------------------------------------------------------------------------
 
-    # TODO: Possibly detach the final loss to prevent back-prop into the model's parameters
-    return final_loss, _ # don't need current params here
+    return final_loss, None # No need to return the params, but may be useful for logging/debugging
+  
 
   def step(self, closure=None):
       """

@@ -17,6 +17,10 @@ import numpy as np
 import pandas as pd
 import torch.nn as nn
 import torch.nn.functional as F
+from typing import Dict, Tuple, Type, Callable
+from torch.optim import _functional as Fopt # Access the functional version optimizer to enable differentiaztion through optimization updates in the rollout
+
+
 
 from transformers import (
     AutoTokenizer,
@@ -38,7 +42,6 @@ from huggingface_hub import login
 import torch.optim as optim
 from torch.optim import AdamW
 from utils.adan import Adan
-from utils.metaoptimizer import MetaOpt
 
 # ---- LoRA/PEFT
 from peft import LoraConfig, get_peft_model, TaskType
@@ -139,3 +142,108 @@ def build_base_model(task: str,
     model.to(device)
 
     return model, lora_type, data_collator, num_labels
+
+#######################################
+# Flattening / unflattening helpers
+#######################################
+def get_param_info(model):
+    """
+    Returns a list of (param_name, shape, numel) for each parameter in 'model'.
+    """
+    param_info = []
+    for name, param in model.named_parameters():
+        param_info.append((name, param.shape, param.numel()))
+    return param_info
+
+def unflatten_params(vec: torch.Tensor, param_info):
+    """
+    Build a dictionary { "layer.weight": Tensor, ... } matching 'model'
+    from a flat vector 'vec' using 'param_info'.
+    """
+    pointer = 0
+    new_params = {}
+    for (name, shape, numel) in param_info:
+        chunk = vec[pointer : pointer + numel].view(shape).contiguous()
+        new_params[name] = chunk
+        pointer += numel
+    return new_params
+
+#######################################
+# The functional cost function
+#######################################
+  # Suppose the model is an autoregressive LM
+  # 1) functional_call -> get logits
+  # 2) compute cross-entropy w.r.t. label tokens
+  # 3) return that loss (without updating model params)
+
+#######################################
+# Generic functional Update for Rollout
+#######################################
+# TODO: Add support for other optimizers
+def make_step_fn(opt_cls: Type[torch.optim.Optimizer],
+                  opt_kwargs: Dict
+                  ) -> Callable[[torch.Tensor, torch.Tensor, Dict, float], Tuple[torch.Tensor, Dict]]:
+    """
+    Returns a **closed-over** function that performs *one* functional
+    update for the chosen base optimizer.
+
+    Signature of the returned func:
+        new_params, new_state = step(params, grads, state, lr)
+    """
+    if opt_cls is torch.optim.SGD:
+        momentum   = opt_kwargs.get("momentum", 0.0)
+        dampening  = opt_kwargs.get("dampening", 0.0)
+        nesterov   = opt_kwargs.get("nesterov", False)
+        def _sgd(params, grads, state, lr_base):
+            # clone to avoid in-place mutation of the graph
+            p_buf = params.clone()
+
+            if momentum != 0.0 and "momentum_buffer" not in state:
+              # Initialize state lazily
+              state["momentum_buffer"] = [torch.zeros_like(p_buf)]
+
+            # Functional SGD update
+            Fopt.sgd(
+                [p_buf], [grads],
+                lr=lr_base,
+                momentum=momentum,
+                dampening=dampening,
+                nesterov=nesterov,
+                weight_decay=0.0,
+                foreach=False,
+                maximize=False,
+                momentum_buffer_list=state.get("momentum_buffer", None)
+            )
+
+            return p_buf, state
+        return _sgd
+
+    if opt_cls in (torch.optim.Adam, torch.optim.AdamW):
+        beta1, beta2  = opt_kwargs.get("betas", (0.9, 0.999))
+        eps    = opt_kwargs.get("eps", 1e-8)
+        ams    = opt_kwargs.get("amsgrad", False)
+
+        def _adam(params, grads, state, lr_base):
+          # clone to avoid in-place mutation of the graph
+          p_buf = params.clone()
+
+          if "exp_avg" not in state:
+              # Initialize state lazily
+              state["exp_avg"]        = [torch.zeros_like(p_buf)]
+              state["exp_avg_sq"]     = [torch.zeros_like(p_buf)]
+              state["max_exp_avg_sq"] = [torch.zeros_like(p_buf)]  # kept even if ams=False
+              state["step"] = [torch.zeros((), dtype=torch.long, device=p_buf.device)]
+          
+          # Update the optimizer state/params in place... This is ok for functional rollout since
+          # We cloned the initial_params at the beginning of the rollout
+          Fopt.adam(
+              (p_buf,), (grads,),
+              state["exp_avg"], state["exp_avg_sq"], state["max_exp_avg_sq"], state["step"],
+              lr=lr_base, beta1=beta1, beta2=beta2, eps=eps, weight_decay=0.0,
+              maximize=False, foreach=False, amsgrad=ams
+          )
+
+          return p_buf, state
+        return _adam
+
+    raise NotImplementedError(f"{opt_cls.__name__} not supported, please modify _make_step_fn() to add support for this optimizer.")
