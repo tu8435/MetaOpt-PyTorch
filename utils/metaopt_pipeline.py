@@ -57,11 +57,11 @@ from utils.utils import load_task, build_base_model, compute_metrics_fn
 def metaopt_pipeline(
         task: str,
         steps: int = 2000,
-        subset: int = 32,
+        subset: int = 256,
         num_epochs: int = 3,
         device: str = "cuda",
         base_lr: float = 1e-3,
-        lr_gpc: float = 1e-5,
+        lr_gpc: float = 1e-6,
         cache_dir: str = os.getenv("HF_HOME", "./hf_cache"),
         metaopt_overrides: dict = None,
         model_id_or_path: str = None,
@@ -167,10 +167,10 @@ def meta_train_gpc(
         train_dataset, 
         val_dataset,
         model_id_or_path:str = "facebook/opt-125m",
-        steps:int = 2000, subset_size:int = 128,
+        steps:int = 2000, subset_size:int = 256,
         device:str = "cuda",
         base_lr: float = 1e-3, # TODO: remove redundancy
-        lr_gpc: float = 1e-5,  # TODO: remove redundancy
+        lr_gpc: float = 1e-6,  # TODO: remove redundancy
         cache_dir: str = os.getenv("HF_HOME", "./hf_cache"),
         metaopt_overrides: dict = None,
         data_collator: DataCollatorWithPadding = None,
@@ -180,7 +180,6 @@ def meta_train_gpc(
 ):
 
     print(f"\n=== Meta-train GPC ({task}) for {steps} steps, base_lr={base_lr}, lr_gpc={lr_gpc} ===")
-
 
     # 1) fresh model + task‑specific LoRA
     base_model, lora_tt, _, _ = build_base_model(task=task, 
@@ -200,7 +199,7 @@ def meta_train_gpc(
     small_ds  = train_dataset.select(range(subset_size))
     batch_sz  = subset_size
     steps_per_epoch    = subset_size // batch_sz
-    gradient_acc_steps = 32 # 32 x 4 = 128 --> subset size
+    gradient_acc_steps = subset_size // 4 # 32 x 4 = 128 --> subset size
     """
     Comments about gradient_acc_steps, batch_sz, and subset_size:
     - We need gradient_acc_steps x batch_sz = subset_size so that we 
@@ -221,9 +220,9 @@ def meta_train_gpc(
         learning_rate      = base_lr, # TODO: remove redundancy
         num_train_epochs   = num_epochs,
         eval_strategy      = "steps",
-        eval_steps         = 10,
+        eval_steps         = 50,
         max_grad_norm      = metaopt_overrides.get("max_norm", 1.0), # <— use passed max_norm
-        logging_steps      = 10,
+        logging_steps      = 50,
         fp16=False, bf16=False, gradient_checkpointing=False,
         report_to=["tensorboard"],
         lr_scheduler_type='constant',
@@ -243,7 +242,7 @@ def meta_train_gpc(
         base_optimizer_cls  = metaopt_overrides.get("base_optimizer_cls", AdamW),
         base_optimizer_kwargs= metaopt_overrides.get("base_optimizer_kwargs", {"lr": 1e-3, "betas": [0.9, 0.99]}), # <— also use base_lr here
         gpc_optimizer_cls   = metaopt_overrides.get("gpc_optimizer_cls", AdamW),
-        gpc_optimizer_kwargs= metaopt_overrides.get("gpc_optimizer_kwargs", {"lr": 1e-3, "betas": [0.9, 0.99]}), # <— also use base_lr here
+        gpc_optimizer_kwargs= metaopt_overrides.get("gpc_optimizer_kwargs", {"lr": 1e-6, "betas": [0.9, 0.99]}), # <— also use base_lr here
         max_norm            = metaopt_overrides.get("max_norm", 1.0), # <— use passed max_norm
     )
 
@@ -260,6 +259,7 @@ def meta_train_gpc(
     )
 
     # TODO: Possibly integrate libraries like higher meant for higher order derivative calculations to prevent errors with gradient checkpointing
+    print(f"Sanity Check from trainer optimizer Phase 1: {[(trainer.optimizer.lr_gpc, trainer.optimizer.gpc_optimizer_kwargs, trainer.optimizer.gpc_optimizer_cls,), (trainer.optimizer.base_lr, trainer.optimizer.base_optimizer_kwargs, trainer.optimizer.base_optimizer_cls), (trainer.optimizer.freeze_gpc_params, trainer.optimizer.fake_the_dynamics, trainer.optimizer.H, trainer.optimizer.HH),]}")
     with sdpa_kernel(SDPBackend.MATH):
         trainer.train()
 
@@ -314,7 +314,7 @@ def run_meta_finetuning(
         base_optimizer_cls = metaopt_overrides.get("base_optimizer_cls", AdamW),
         base_optimizer_kwargs= metaopt_overrides.get("base_optimizer_kwargs", {"lr": 1e-3, "betas": [0.9, 0.99]}), # <— also use base_lr here
         gpc_optimizer_cls  = metaopt_overrides.get("gpc_optimizer_cls", AdamW), # ignored when frozen
-        gpc_optimizer_kwargs= metaopt_overrides.get("gpc_optimizer_kwargs", {"lr": 1e-3, "betas": [0.9, 0.99]}), # <— irrelevant, optimizer is frozen
+        gpc_optimizer_kwargs= metaopt_overrides.get("gpc_optimizer_kwargs", {"lr": 1e-6, "betas": [0.9, 0.99]}), # <— irrelevant, optimizer is frozen
         max_norm           = metaopt_overrides.get("max_norm", 1.0), # <— use passed max_norm
     )
     # copy GPC weights
@@ -342,16 +342,17 @@ def run_meta_finetuning(
 
     trainer = MetaTrainer(
         model            = new_model,
+        meta_optimizer_params = {},          # not needed; we pass opt directly
         args             = args_phase2,
         train_dataset    = train_dataset,
         eval_dataset     = val_dataset,
         data_collator    = data_collator,
         tokenizer        = tokenizer,
         compute_metrics  = compute_metrics_fn,
+        optimizers       = (frozen_meta_opt, None) # <— frozen optimizer
     )
 
-    trainer.optimizer = frozen_meta_opt          # skip create_optimizer()
-
+    print(f"Sanity Check from trainer optimizer Phase 2: {[(trainer.optimizer.lr_gpc, trainer.optimizer.gpc_optimizer_kwargs, trainer.optimizer.gpc_optimizer_cls,), (trainer.optimizer.base_lr, trainer.optimizer.base_optimizer_kwargs, trainer.optimizer.base_optimizer_cls), (trainer.optimizer.freeze_gpc_params, trainer.optimizer.fake_the_dynamics, trainer.optimizer.H, trainer.optimizer.HH),]}")
     trainer.train()
     metrics = trainer.evaluate(val_dataset)
     print(f"[Meta-Frozen GPC]  {metrics}")

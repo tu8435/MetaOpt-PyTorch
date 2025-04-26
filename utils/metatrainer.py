@@ -345,21 +345,8 @@ FSDP_MODEL_NAME = "pytorch_model_fsdp"
 class MetaTrainer(Trainer):
   def __init__(self, *args, meta_optimizer_params=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.meta_optimizer_params = meta_optimizer_params or {
-            "H":5,
-            "HH":10,
-            "m_method": "scalar",
-            "base_lr": lambda t: 1e-3,
-            "weight_decay":0.0,
-            "freeze_gpc_params":False,
-            "fake_the_dynamics":False,
-            "lr_gpc":1e-5,                # 1e-5 is a strict upperbound on lr_gpc, when using SGD as a base optimizer
-            "base_optimizer_cls": torch.optim.SGD,
-            "base_optimizer_kwargs":{"lr": 1e-3},
-            "gpc_optimizer_cls": torch.optim.SGD,
-            "gpc_optimizer_kwargs":{"lr": 1e-3},
-            "max_norm":1.0,
-        }
+        if meta_optimizer_params is None:
+            raise ValueError("Meta optimizer params must be provided")
 
   """
   TODO: In real usage, I need more robust error handling, logging, etc.
@@ -389,12 +376,12 @@ class MetaTrainer(Trainer):
             weight_decay=self.meta_optimizer_params.get("weight_decay", 0.0),
             freeze_gpc_params=self.meta_optimizer_params.get("freeze_gpc_params", False),
             fake_the_dynamics=self.meta_optimizer_params.get("fake_the_dynamics", False),
-            lr_gpc=self.meta_optimizer_params.get("lr_gpc", 1e-5),
+            lr_gpc=self.meta_optimizer_params.get("lr_gpc", 1e-6),
             device=self.args.device,
-            base_optimizer_cls=self.meta_optimizer_params.get("base_optimizer_cls", torch.optim.SGD),
-            base_optimizer_kwargs=self.meta_optimizer_params.get("base_optimizer_kwargs", {"lr": 1e-3}),
-            gpc_optimizer_cls=self.meta_optimizer_params.get("gpc_optimizer_cls", torch.optim.SGD),
-            gpc_optimizer_kwargs=self.meta_optimizer_params.get("gpc_optimizer_kwargs", {"lr": 1e-3}),
+            base_optimizer_cls=self.meta_optimizer_params.get("base_optimizer_cls", torch.optim.AdamW),
+            base_optimizer_kwargs=self.meta_optimizer_paramsget("base_optimizer_kwargs", {"lr": 1e-3, "betas": [0.9, 0.99]}),
+            gpc_optimizer_cls=self.meta_optimizer_params.get("gpc_optimizer_cls", torch.optim.AdamW),
+            gpc_optimizer_kwargs=self.meta_optimizer_params.get("gpc_optimizer_kwargs", {"lr": 1e-6, "betas": [0.9, 0.99]}),
             max_norm=self.meta_optimizer_params.get("max_norm", 1.0),
         )
     logger.info("\n >>> Created meta-optimizer with the following Param <<<")

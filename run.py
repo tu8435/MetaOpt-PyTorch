@@ -29,7 +29,7 @@ python run.py \
         --weight_decay 0.0 \
         --freeze_gpc_params false \
         --fake_the_dynamics false \
-        --lr_gpc    5e-6 \
+        --lr_gpc    1e-6 \
         --base_optimizer_cls Adam \
         --base_optimizer_kwargs '{"lr":1e-3,"betas":[0.9,0.99]}' \
         --max_norm  1.0 \
@@ -69,7 +69,7 @@ def parse_args():
     p.add_argument("--weight_decay",             type=float, default=0.0)
     p.add_argument("--freeze_gpc_params",        type=str2bool, default=False)
     p.add_argument("--fake_the_dynamics",        type=str2bool, default=False)
-    p.add_argument("--lr_gpc",                   type=float, default=5e-6)
+    p.add_argument("--lr_gpc",                   type=float, default=1e-6)
     p.add_argument("--base_optimizer_cls",
                    choices=["Adam","SGD","AdamW","RMSprop","Adan","Adafactor"],
                    default="AdamW")
@@ -121,7 +121,7 @@ def main():
     gpc_opt_cls  = OPT_LOOKUP[args.gpc_optimizer_cls]
 
     # Format output directory
-    run_name = f"MetaOpt{args.base_optimizer_cls}_{args.H}_HH{args.HH}_LR{args.base_lr}_LG{args.lr_gpc}_GPCSteps{args.steps}_"
+    run_name = f"Base{args.base_optimizer_cls}_LR{args.base_lr}_Meta{args.gpc_optimizer_cls}_LG{args.lr_gpc}_H{args.H}_HH{args.HH}_GPCSteps{args.steps}_Subset{args.subset}_"
     args.out_dir = os.path.join("results", f"{args.task}", run_name)
 
     # ----------------------------------------------------------------
