@@ -311,7 +311,7 @@ class MetaOpt(Optimizer):
       self.param_ptr = (self.param_ptr + 1) % self.HH
 
       # 3) Gather closure and expand ring buffer
-      if self.freeze_gpc_params:
+      if not self.freeze_gpc_params:
         inputs, cost_function = closure
         self.data_buffer.append((inputs, cost_function))
 
