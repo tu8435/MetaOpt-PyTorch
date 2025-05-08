@@ -286,6 +286,7 @@ class MetaOpt(Optimizer):
       """
     
       if closure is None and self.freeze_gpc_params is False:
+        # TODO: Clean up ensuing logic to isolate all logic that doesnt need to be run if self.freeze_gpc_params is False
         raise RuntimeError("FunctionalMetaOpt requires a closure to train the meta-params --> some function that returns a mini-batch/full set of datapoints, as well as cost function.")
 
       # 1) Gather grads and shift ring buffer
@@ -310,14 +311,15 @@ class MetaOpt(Optimizer):
       self.param_ptr = (self.param_ptr + 1) % self.HH
 
       # 3) Gather closure and expand ring buffer
-      inputs, cost_function = closure
-      self.data_buffer.append((inputs, cost_function))
+      if self.freeze_gpc_params:
+        inputs, cost_function = closure
+        self.data_buffer.append((inputs, cost_function))
 
-      # 4a) Normal base optimizer step for the base model... 
+      # 4a) ALWAYS: Normal base optimizer step for the base model... 
       # don't zero out base_optimizers' gradients here as gradient accumulation is handled by the HF trainer
       self.base_optim.step()
 
-      # 4b) if we have enough H grads, apply the GPC control
+      # 4b) ALWAYS: if we have enough H grads, apply the GPC control
       # gather last H from ring
       if self.t >= self.H:
           control_indices = []
