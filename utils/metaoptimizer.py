@@ -285,8 +285,8 @@ class MetaOpt(Optimizer):
       (2) compute the final param update with [base optimizer + gpc control] -> apply to model.parameters()
       """
     
-      if closure is None:
-        raise RuntimeError("FunctionalMetaOpt requires a closure --> some function that returns a mini-batch/full set of datapoints, as well as cost function.")
+      if closure is None and self.freeze_gpc_params is False:
+        raise RuntimeError("FunctionalMetaOpt requires a closure to train the meta-params --> some function that returns a mini-batch/full set of datapoints, as well as cost function.")
 
       # 1) Gather grads and shift ring buffer
       new_grads = []
